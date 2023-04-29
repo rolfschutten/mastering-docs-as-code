@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Set variables 
-resourceGroupName='rg-p-weu-docs-001'
-location='westeurope'
-storageAccountName='sapweudocs001'
+resourceGroupName=''
+location=''
+storageAccountName=''
 storageContainerName='tfstate'
 
 # Create resource group
