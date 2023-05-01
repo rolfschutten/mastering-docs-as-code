@@ -1,0 +1,89 @@
+name: 'Documentation site'
+ 
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+ 
+jobs:
+  terraform:
+    name: 'Terraform'
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+    runs-on: ubuntu-latest
+    environment: production
+ 
+    # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
+    defaults:
+      run:
+        shell: bash
+ 
+    steps:
+    # Checkout the repository to the GitHub Actions runner
+    - name: Checkout
+      uses: actions/checkout@v2
+         
+    - name: 'Terraform Init'
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: 1.4.6
+        tf_actions_subcommand: 'init'
+        tf_actions_working_dir: "./terraform"
+ 
+    - name: 'Terraform Validate'
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: 1.4.6
+        tf_actions_subcommand: 'validate'
+        tf_actions_working_dir: "./terraform"
+         
+    - name: 'Terraform Plan'
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: 1.4.6
+        tf_actions_subcommand: 'plan'
+        tf_actions_working_dir: "./terraform"
+ 
+    - name: Terraform Apply
+      if: github.ref == 'refs/heads/main'
+      uses: hashicorp/terraform-github-actions@master
+      with:
+        tf_actions_version: 1.4.6
+        tf_actions_subcommand: 'apply'
+        tf_actions_working_dir: "./terraform"
+
+  docusaurus:
+    needs: terraform
+    permissions:
+      contents: read 
+      pull-requests: write 
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.action != 'closed')
+    runs-on: ubuntu-latest
+    name: Docusaurus
+    env:
+      APP_LOCATION: "/" 
+      API_LOCATION: "api" 
+      APP_ARTIFACT_LOCATION: "build" 
+      AZURE_STATIC_WEB_APPS_API_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }} 
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: true
+      - name: Build and deploy
+        id: builddeploy
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ env.AZURE_STATIC_WEB_APPS_API_TOKEN }} 
+          repo_token: ${{ secrets.GITHUB_TOKEN }} 
+          action: "upload"
+          app_location: ${{ env.APP_LOCATION }}
+          api_location: ${{ env.API_LOCATION }}
+          app_artifact_location: ${{ env.APP_ARTIFACT_LOCATION }}
